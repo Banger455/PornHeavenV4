@@ -20,6 +20,7 @@ from common.src.helper import (
 from common.src.urlparser import ParsedURLType
 from download.src.queue_interact import PendingInteract
 from download.src.thumbnails import ThumbManager
+from download.src.yt_dlp_base import YtWrap
 from playlist.src.index import YoutubePlaylist
 from video.src.constants import VideoTypeEnum
 from video.src.index import YoutubeVideo
@@ -298,7 +299,45 @@ class PendingList(PendingIndex):
             )
 
     def _parse_video(self, url: str, vid_type) -> dict | None:
-        """parse video when not flat, fetch from YT"""
+        """parse video when not flat; support external URLs via yt-dlp"""
+        is_external = url.startswith("http://") or url.startswith("https://")
+        if is_external:
+            obs_request = {
+                "check_formats": None,
+                "skip_download": True,
+                "extract_flat": True,
+                "noplaylist": True,
+            }
+            info, error = YtWrap(obs_request, self.config).extract(url)
+            if not info:
+                print(f"{url}: video metadata extraction failed (external), skipping")
+                if self.task:
+                    self.task.send_progress(
+                        message_lines=["Video extraction failed.", f"{error}"],
+                        level="error",
+                    )
+                return None
+
+            video_id = info.get("id") or url
+            channel_name = info.get("uploader") or info.get("extractor_key") or "External"
+            channel_id = f"external:{info.get('extractor_key') or 'ext'}:{info.get('uploader_id') or 'unknown'}"
+            video_data = {
+                "id": video_id,
+                "title": info.get("title") or url,
+                "thumbnail": info.get("thumbnail"),
+                "duration": info.get("duration") or 0,
+                "channel": channel_name,
+                "channel_id": channel_id,
+                "vid_type": vid_type or VideoTypeEnum.VIDEOS.value,
+            }
+            to_add = self._parse_entry(youtube_id=video_id, video_data=video_data)
+            if not to_add:
+                return None
+            to_add["source_url"] = url
+            ThumbManager(item_id=video_id).download_video_thumb(to_add["vid_thumb_url"])
+            rand_sleep(self.config)
+            return to_add
+
         video = YoutubeVideo(youtube_id=url)
         video.get_from_youtube()
 
@@ -322,6 +361,7 @@ class PendingList(PendingIndex):
         if not to_add:
             return None
 
+        to_add["source_url"] = f"https://www.youtube.com/watch?v={url}"
         ThumbManager(item_id=url).download_video_thumb(to_add["vid_thumb_url"])
         rand_sleep(self.config)
 
