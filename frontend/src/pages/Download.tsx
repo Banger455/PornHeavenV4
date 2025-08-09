@@ -12,7 +12,6 @@ import Button from '../components/Button';
 import DownloadListItem from '../components/DownloadListItem';
 import loadDownloadAggs, { DownloadAggsType } from '../api/loader/loadDownloadAggs';
 import { useUserConfigStore } from '../stores/UserConfigStore';
-import updateUserConfig, { UserConfigType } from '../api/actions/updateUserConfig';
 import { ApiResponseType } from '../functions/APIClient';
 import deleteDownloadQueueByFilter from '../api/actions/deleteDownloadQueueByFilter';
 import updateDownloadQueueByFilter, {
@@ -55,7 +54,6 @@ const Download = () => {
 
   const [refresh, setRefresh] = useState(false);
   const [searchInput, setSearchInput] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [lastVideoCount, setLastVideoCount] = useState(0);
 
@@ -90,14 +88,6 @@ const Download = () => {
   const gridView = isGridView ? `boxed-${gridItems}` : '';
   const gridViewGrid = isGridView ? `grid-${gridItems}` : '';
 
-  const handleUserConfigUpdate = async (config: Partial<UserConfigType>) => {
-    const updatedUserConfig = await updateUserConfig(config);
-    const { data: updatedUserConfigData } = updatedUserConfig;
-
-    if (updatedUserConfigData) {
-      setUserConfig(updatedUserConfigData);
-    }
-  };
 
   useEffect(() => {
     (async () => {
@@ -165,14 +155,6 @@ const Download = () => {
         </div>
         <Notifications
           pageName="download"
-          update={rescanPending || downloadPending}
-          setShouldRefresh={isDone => {
-            if (!isDone) {
-              setRescanPending(false);
-              setDownloadPending(false);
-              setRefresh(true);
-            }
-          }}
         />
         <div id="downloadControl"></div>
         <div className="info-box">
@@ -212,149 +194,6 @@ const Download = () => {
             </>
           )}
         </h3>
-        {showQueueActions && (
-          <div className="settings-group">
-            <h3>Search & Filter</h3>
-            <select
-              name="vid_type_filter"
-              id="vid_type_filter"
-              value={vidTypeFilterFromUrl || 'all'}
-              onChange={async event => {
-                const value = event.currentTarget.value;
-                const params = searchParams;
-                if (value !== 'all') {
-                  params.set('vid-type', value);
-                } else {
-                  params.delete('vid-type');
-                }
-                setSearchParams(params);
-              }}
-            >
-              <option value="all">all types</option>
-              <option value="videos">Videos</option>
-              <option value="streams">Streams</option>
-              <option value="shorts">Shorts</option>
-            </select>
-            {channelAggsList && channelAggsList.length > 1 && (
-              <select
-                name="channel_filter"
-                id="channel_filter"
-                value={channelFilterFromUrl || 'all'}
-                onChange={async event => {
-                  const value = event.currentTarget.value;
-
-                  const params = searchParams;
-                  if (value !== 'all') {
-                    params.set('channel', value);
-                  } else {
-                    params.delete('channel');
-                  }
-
-                  setSearchParams(params);
-                }}
-              >
-                <option value="all">all channels</option>
-                {channelAggsList.map(channel => {
-                  const [name, id] = channel.key;
-                  const count = channel.doc_count;
-
-                  return (
-                    <option key={id} value={id}>
-                      {name} ({count})
-                    </option>
-                  );
-                })}
-              </select>
-            )}
-            <select
-              name="error_filter"
-              id="error_filter"
-              value={errorFilterFromUrl || 'all'}
-              onChange={async event => {
-                const value = event.currentTarget.value;
-                const params = searchParams;
-                if (value !== 'all') {
-                  params.set('error', value);
-                } else {
-                  params.delete('error');
-                }
-                setSearchParams(params);
-              }}
-            >
-              <option value="all">all error state</option>
-              <option value="true">has error</option>
-              <option value="false">has no error</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-            />
-            {searchInput && <Button onClick={() => setSearchInput('')}>Clear</Button>}
-
-            <h3>Bulk actions</h3>
-            <p>
-              Applied filtered by status <i>'{showIgnoredFilter}'</i>
-              {vidTypeFilterFromUrl && (
-                <span>
-                  {' '}
-                  and by type: <i>'{vidTypeFilterFromUrl}'</i>
-                </span>
-              )}
-              {channelFilterFromUrl && (
-                <span>
-                  {' '}
-                  and by channel: <i>'{channel_filter_name}'</i>
-                </span>
-              )}
-              {errorFilterFromUrl && (
-                <span>
-                  {' '}
-                  and by error state: <i>'{errorFilterFromUrl}'</i>
-                </span>
-              )}
-            </p>
-            <div>
-              {showIgnored ? (
-                <div className="button-box">
-                  <Button onClick={() => handleBulkStatusUpdate('pending')}>Add to Queue</Button>
-                </div>
-              ) : (
-                <div className="button-box">
-                  <Button onClick={() => handleBulkStatusUpdate('ignore')}>Ignore</Button>
-                  <Button onClick={() => handleBulkStatusUpdate('priority')}>Download Now</Button>
-                  <Button onClick={() => handleBulkStatusUpdate('clear_error')}>
-                    Clear Errors
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div className="button-box">
-              {showDeleteConfirm ? (
-                <>
-                  <Button
-                    className="danger-button"
-                    onClick={async () => {
-                      await deleteDownloadQueueByFilter(
-                        showIgnoredFilter,
-                        channelFilterFromUrl,
-                        vidTypeFilterFromUrl,
-                      );
-                      setRefresh(true);
-                      setShowDeleteConfirm(false);
-                    }}
-                  >
-                    Confirm
-                  </Button>
-                  <Button onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-                </>
-              ) : (
-                <Button onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}>Forget</Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className={`boxed-content ${gridView}`}>
