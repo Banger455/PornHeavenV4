@@ -10,13 +10,8 @@ import Notifications from '../components/Notifications';
 import ScrollToTopOnNavigate from '../components/ScrollToTop';
 import Button from '../components/Button';
 import DownloadListItem from '../components/DownloadListItem';
-import loadDownloadAggs, { DownloadAggsType } from '../api/loader/loadDownloadAggs';
 import { useUserConfigStore } from '../stores/UserConfigStore';
 import { ApiResponseType } from '../functions/APIClient';
-import deleteDownloadQueueByFilter from '../api/actions/deleteDownloadQueueByFilter';
-import updateDownloadQueueByFilter, {
-  DownloadQueueStatus,
-} from '../api/actions/updateDownloadQueueByFilter';
 
 type Download = {
   auto_start: boolean;
@@ -43,8 +38,8 @@ export type DownloadResponseType = {
 };
 
 const Download = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { userConfig, setUserConfig } = useUserConfigStore();
+  const [searchParams] = useSearchParams();
+  const { userConfig } = useUserConfigStore();
   const { currentPage, setCurrentPage } = useOutletContext() as OutletContextType;
 
   const channelFilterFromUrl = searchParams.get('channel');
@@ -53,22 +48,17 @@ const Download = () => {
   const errorFilterFromUrl = searchParams.get('error');
 
   const [refresh, setRefresh] = useState(false);
-  const [searchInput, setSearchInput] = useState('');
 
   const [lastVideoCount, setLastVideoCount] = useState(0);
 
   const [downloadQueueText, setDownloadQueueText] = useState('');
 
   const [downloadResponse, setDownloadResponse] = useState<ApiResponseType<DownloadResponseType>>();
-  const [downloadAggsResponse, setDownloadAggsResponse] =
-    useState<ApiResponseType<DownloadAggsType>>();
 
   const { data: downloadResponseData } = downloadResponse ?? {};
-  const { data: downloadAggsResponseData } = downloadAggsResponse ?? {};
 
   const downloadList = downloadResponseData?.data;
   const pagination = downloadResponseData?.paginate;
-  const channelAggsList = downloadAggsResponseData?.buckets;
 
   const downloadCount = pagination?.total_hits;
 
@@ -82,7 +72,6 @@ const Download = () => {
   const showIgnored =
     ignoredOnlyParam !== null ? ignoredOnlyParam === 'true' : userConfig.show_ignored_only;
 
-  const showIgnoredFilter = showIgnored ? 'ignore' : 'pending';
 
   const isGridView = viewStyle === ViewStylesEnum.Grid;
   const gridView = isGridView ? `boxed-${gridItems}` : '';
@@ -98,7 +87,7 @@ const Download = () => {
           vidTypeFilterFromUrl,
           errorFilterFromUrl,
           showIgnored,
-          searchInput,
+          '',
         );
         const { data: channelResponseData } = videosResponse ?? {};
         const videoCount = channelResponseData?.paginate?.total_hits;
@@ -123,27 +112,9 @@ const Download = () => {
     errorFilterFromUrl,
     currentPage,
     showIgnored,
-    searchInput,
   ]);
 
-  useEffect(() => {
-    (async () => {
-      const downloadAggs = await loadDownloadAggs(showIgnored);
 
-      setDownloadAggsResponse(downloadAggs);
-    })();
-  }, [lastVideoCount, showIgnored]);
-
-  const handleBulkStatusUpdate = async (status: DownloadQueueStatus) => {
-    await updateDownloadQueueByFilter(
-      showIgnoredFilter,
-      channelFilterFromUrl,
-      vidTypeFilterFromUrl,
-      errorFilterFromUrl,
-      status,
-    );
-    setRefresh(true);
-  };
 
   return (
     <>
