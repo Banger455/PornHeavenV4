@@ -1,18 +1,11 @@
-import iconRescan from '/img/icon-rescan.svg';
-import iconDownload from '/img/icon-download.svg';
-import iconAdd from '/img/icon-add.svg';
-import iconSubstract from '/img/icon-substract.svg';
-import iconGridView from '/img/icon-gridview.svg';
-import iconListView from '/img/icon-listview.svg';
 import { Fragment, useEffect, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { ConfigType } from './Home';
 import loadDownloadQueue from '../api/loader/loadDownloadQueue';
 import { OutletContextType } from './Base';
 import Pagination, { PaginationType } from '../components/Pagination';
-import { ViewStylesEnum, ViewStylesType } from '../configuration/constants/ViewStyle';
+import { ViewStylesEnum } from '../configuration/constants/ViewStyle';
 import updateDownloadQueue from '../api/actions/updateDownloadQueue';
-import updateTaskByName from '../api/actions/updateTaskByName';
 import Notifications from '../components/Notifications';
 import ScrollToTopOnNavigate from '../components/ScrollToTop';
 import Button from '../components/Button';
@@ -61,14 +54,8 @@ const Download = () => {
   const errorFilterFromUrl = searchParams.get('error');
 
   const [refresh, setRefresh] = useState(false);
-  const [showHiddenForm, setShowHiddenForm] = useState(false);
-  const [addAsAutoStart, setAddAsAutoStart] = useState(false);
-  const [addAsFlat, setAddAsFlat] = useState(false);
-  const [showQueueActions, setShowQueueActions] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [downloadPending, setDownloadPending] = useState(false);
-  const [rescanPending, setRescanPending] = useState(false);
 
   const [lastVideoCount, setLastVideoCount] = useState(0);
 
@@ -188,183 +175,24 @@ const Download = () => {
           }}
         />
         <div id="downloadControl"></div>
-        <div className="info-box info-box-3">
-          <div className="icon-text">
-            <img
-              id="rescan-icon"
-              className={rescanPending ? 'rotate-img' : ''}
+        <div className="info-box">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="text"
+              value={downloadQueueText}
+              onChange={e => setDownloadQueueText(e.target.value)}
+              placeholder="Füge eine Video-URL ein (YouTube, Pornhub, …)"
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Download"
               onClick={async () => {
-                setRescanPending(!rescanPending);
-                await updateTaskByName('update_subscribed');
-              }}
-              src={iconRescan}
-              alt="rescan-icon"
-            />
-            <p>Rescan subscriptions</p>
-          </div>
-          <div className="icon-text">
-            <img
-              id="download-icon"
-              className={downloadPending ? 'bounce-img' : ''}
-              onClick={async () => {
-                setDownloadPending(!downloadPending);
-                await updateTaskByName('download_pending');
-              }}
-              src={iconDownload}
-              alt="download-icon"
-            />
-            <p>Start download</p>
-          </div>
-          <div className="icon-text">
-            <img
-              className={showHiddenForm ? 'pulse-img' : ''}
-              onClick={() => {
-                setShowHiddenForm(!showHiddenForm);
-              }}
-              src={iconAdd}
-              alt="add-icon"
-            />
-            <p>Add to download queue</p>
-
-            {showHiddenForm && (
-              <div className="show-form">
-                <div>
-                  <div className="toggle">
-                    <div className="toggleBox">
-                      <input
-                        id="hide_watched"
-                        type="checkbox"
-                        checked={addAsFlat}
-                        onChange={() => setAddAsFlat(!addAsFlat)}
-                      />
-                      {addAsFlat ? (
-                        <label htmlFor="" className="onbtn">
-                          On
-                        </label>
-                      ) : (
-                        <label htmlFor="" className="ofbtn">
-                          Off
-                        </label>
-                      )}
-                    </div>
-                    <span>Fast add</span>
-                  </div>
-                  <div className="toggle">
-                    <div className="toggleBox">
-                      <input
-                        id="hide_watched"
-                        type="checkbox"
-                        checked={addAsAutoStart}
-                        onChange={() => setAddAsAutoStart(!addAsAutoStart)}
-                      />
-                      {addAsAutoStart ? (
-                        <label htmlFor="" className="onbtn">
-                          On
-                        </label>
-                      ) : (
-                        <label htmlFor="" className="ofbtn">
-                          Off
-                        </label>
-                      )}
-                    </div>
-                    <span>Auto Download</span>
-                  </div>
-                  <textarea
-                    value={downloadQueueText}
-                    onChange={e => setDownloadQueueText(e.target.value)}
-                    cols={40}
-                    rows={4}
-                    placeholder="Enter at least one video, channel or playlist id/URL here..."
-                  />
-                  <Button
-                    label="Add to queue"
-                    onClick={async () => {
-                      if (downloadQueueText.trim()) {
-                        await updateDownloadQueue(downloadQueueText, addAsAutoStart, addAsFlat);
-                        setDownloadQueueText('');
-                        setRefresh(true);
-                        setShowHiddenForm(false);
-                      }
-                    }}
-                  />{' '}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="view-controls three">
-          <div className="toggle">
-            <span>Show only ignored videos:</span>
-            <div className="toggleBox">
-              <input
-                id="showIgnored"
-                onChange={() => {
-                  handleUserConfigUpdate({ show_ignored_only: !showIgnored });
-                  const newParams = new URLSearchParams();
-                  newParams.set('ignored', String(!showIgnored));
-                  setSearchParams(newParams);
+                if (downloadQueueText.trim()) {
+                  await updateDownloadQueue(downloadQueueText.trim(), true, false);
+                  setDownloadQueueText('');
                   setRefresh(true);
-                }}
-                type="checkbox"
-                checked={showIgnored}
-              />
-              {!showIgnored && (
-                <label htmlFor="" className="ofbtn">
-                  Off
-                </label>
-              )}
-              {showIgnored && (
-                <label htmlFor="" className="onbtn">
-                  On
-                </label>
-              )}
-            </div>
-          </div>
-          <div className="view-icons">
-            <Button onClick={() => setShowQueueActions(!showQueueActions)}>
-              {showQueueActions ? 'Hide Advanced' : 'Show Advanced'}
-            </Button>
-
-            {isGridView && (
-              <div className="grid-count">
-                {gridItems < 7 && (
-                  <img
-                    src={iconAdd}
-                    onClick={() => {
-                      handleUserConfigUpdate({ grid_items: gridItems + 1 });
-                    }}
-                    alt="grid plus row"
-                  />
-                )}
-                {gridItems > 3 && (
-                  <img
-                    src={iconSubstract}
-                    onClick={() => {
-                      handleUserConfigUpdate({ grid_items: gridItems - 1 });
-                    }}
-                    alt="grid minus row"
-                  />
-                )}
-              </div>
-            )}
-
-            <img
-              src={iconGridView}
-              onClick={() => {
-                handleUserConfigUpdate({
-                  view_style_downloads: ViewStylesEnum.Grid as ViewStylesType,
-                });
+                }
               }}
-              alt="grid view"
-            />
-            <img
-              src={iconListView}
-              onClick={() => {
-                handleUserConfigUpdate({
-                  view_style_downloads: ViewStylesEnum.List as ViewStylesType,
-                });
-              }}
-              alt="list view"
             />
           </div>
         </div>

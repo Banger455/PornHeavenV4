@@ -58,8 +58,7 @@ class Parser:
             return self._validate_expected(youtube_id, "video")
 
         if "youtube.com" not in parsed.netloc:
-            message = f"invalid domain: {parsed.netloc}"
-            raise ValueError(message)
+            return {"type": "video", "url": parsed.geturl()}
 
         query_parsed = parse_qs(parsed.query)
         if "v" in query_parsed:

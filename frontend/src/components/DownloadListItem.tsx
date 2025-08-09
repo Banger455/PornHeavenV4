@@ -48,7 +48,7 @@ const DownloadListItem = ({ download, setRefresh }: DownloadListItemProps) => {
           {!download.channel_indexed && <span>{download.channel_name}</span>}
 
           <a
-            href={`https://www.youtube.com/watch?v=${download.youtube_id}`}
+            href={(download as any).source_url ? (download as any).source_url : `https://www.youtube.com/watch?v=${download.youtube_id}`}
             target="_blank"
             rel="noopener noreferrer"
           >

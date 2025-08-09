@@ -72,9 +72,18 @@ class VideoDownloader(DownloaderBase):
             print(f"{youtube_id}: Downloading video")
             self._notify(video_data, "Validate download format")
 
-            success = self._dl_single_vid(youtube_id, channel_id)
+            url_for_download = video_data.get("source_url", youtube_id)
+            success = self._dl_single_vid(youtube_id, channel_id, url_for_download)
             if not success:
                 failed += 1
+                continue
+
+            is_external = isinstance(channel_id, str) and channel_id.startswith("external:")
+            if is_external:
+                self._notify(video_data, "Move downloaded file to external archive", progress=1)
+                self.move_to_external(video_data)
+                self._delete_from_pending(youtube_id)
+                downloaded += 1
                 continue
 
             self._notify(video_data, "Add video metadata to index", progress=1)
@@ -223,13 +232,14 @@ class VideoDownloader(DownloaderBase):
         if overwrites and overwrites.get("download_format"):
             obs["format"] = overwrites.get("download_format")
 
-    def _dl_single_vid(self, youtube_id: str, channel_id: str) -> bool:
+    def _dl_single_vid(self, youtube_id: str, channel_id: str, url: str | None = None) -> bool:
         """download single video"""
         obs = self.obs.copy()
         self._set_overwrites(obs, channel_id)
         dl_cache = os.path.join(self.CACHE_DIR, "download")
 
-        success, message = YtWrap(obs, self.config).download(youtube_id)
+        target = url or youtube_id
+        success, message = YtWrap(obs, self.config).download(target)
         if not success:
             self._handle_error(youtube_id, message)
 
@@ -253,19 +263,30 @@ class VideoDownloader(DownloaderBase):
         """move downloaded video from cache to archive"""
         host_uid = EnvironmentSettings.HOST_UID
         host_gid = EnvironmentSettings.HOST_GID
-        # make folder
-        folder = os.path.join(
-            self.MEDIA_DIR, vid_dict["channel"]["channel_id"]
-        )
+        folder = os.path.join(self.MEDIA_DIR, vid_dict["channel"]["channel_id"])
         if not os.path.exists(folder):
             os.makedirs(folder)
             if host_uid and host_gid:
                 os.chown(folder, host_uid, host_gid)
-        # move media file
         media_file = vid_dict["youtube_id"] + ".mp4"
         old_path = os.path.join(self.CACHE_DIR, "download", media_file)
         new_path = os.path.join(self.MEDIA_DIR, vid_dict["media_url"])
-        # move media file and fix permission
+        shutil.move(old_path, new_path, copy_function=shutil.copyfile)
+        if host_uid and host_gid:
+            os.chown(new_path, host_uid, host_gid)
+
+    def move_to_external(self, video_data):
+        host_uid = EnvironmentSettings.HOST_UID
+        host_gid = EnvironmentSettings.HOST_GID
+        safe_chan = str(video_data["channel_id"]).replace("/", "_")
+        folder = os.path.join(self.MEDIA_DIR, "external", safe_chan)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            if host_uid and host_gid:
+                os.chown(folder, host_uid, host_gid)
+        media_file = video_data["youtube_id"] + ".mp4"
+        old_path = os.path.join(self.CACHE_DIR, "download", media_file)
+        new_path = os.path.join(folder, media_file)
         shutil.move(old_path, new_path, copy_function=shutil.copyfile)
         if host_uid and host_gid:
             os.chown(new_path, host_uid, host_gid)

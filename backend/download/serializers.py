@@ -22,6 +22,7 @@ class DownloadItemSerializer(serializers.Serializer):
     vid_thumb_url = serializers.CharField(allow_null=True)
     vid_type = serializers.ChoiceField(choices=VideoTypeEnum.values())
     youtube_id = serializers.CharField()
+    source_url = serializers.CharField(required=False, allow_null=True)
     message = serializers.CharField(required=False)
     _index = serializers.CharField(required=False)
     _score = serializers.IntegerField(required=False)
